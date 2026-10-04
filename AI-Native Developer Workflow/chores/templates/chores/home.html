@@ -1,0 +1,79 @@
+{% extends "chores/base.html" %}
+
+{% block title %}Chore board | Homekeeper{% endblock %}
+
+{% block content %}
+<section class="page-heading">
+    <div>
+        <p class="eyebrow">THE HOUSEHOLD LIST</p>
+        <h1>Chore board</h1>
+        {% if mode == "organizer" %}
+        <p class="heading-note">Organizer view</p>
+        {% elif selected_member %}
+        <p class="heading-note">Member view <span class="heading-divider">/</span> {{ selected_member.name }}</p>
+        {% else %}
+        <p class="heading-note">Choose a member to continue.</p>
+        {% endif %}
+    </div>
+    {% if mode == "organizer" %}
+    <a class="button button-primary" href="{% url 'chores:create_chore' %}"><span aria-hidden="true">+</span> Add
+        chore</a>
+    {% endif %}
+</section>
+
+<section class="summary" aria-label="Chore summary">
+    <div class="summary-item"><span class="summary-value">{{ open_count }}</span><span class="summary-label">Open</span>
+    </div>
+    <div class="summary-item"><span class="summary-value summary-alert">{{ overdue_count }}</span><span
+            class="summary-label">Overdue</span></div>
+    <div class="summary-item"><span class="summary-value">{{ complete_count }}</span><span
+            class="summary-label">Complete</span></div>
+</section>
+
+<section class="list-section" aria-labelledby="list-title">
+    <div class="list-heading">
+        <h2 id="list-title">All chores</h2>
+        <span class="list-count">{{ chores|length }} total</span>
+    </div>
+    {% if chores %}
+    <ul class="chore-list">
+        {% for chore in chores %}
+        <li class="chore-row">
+            <div class="chore-info">
+                <div class="chore-title-line">
+                    <h3>{{ chore.title }}</h3>
+                    <span class="status status-{{ chore.status }}">{{ chore.status_label }}</span>
+                </div>
+                <div class="chore-meta">
+                    <span class="assignee">
+                        <span class="assignee-dot" aria-hidden="true">{{ chore.assignee.name|first|upper }}</span>
+                        <span class="assignee-name">{{ chore.assignee.name }}</span>
+                    </span>
+                    <span class="due-date">Due {{ chore.due_date|date:"D, M j" }}</span>
+                </div>
+            </div>
+            <div class="chore-actions">
+                {% if chore.is_overdue and mode == "organizer" %}
+                <a class="button button-secondary" href="{% url 'chores:review_overdue_chore' chore.pk %}">Review</a>
+                {% elif not chore.completed_at and mode == "member" and selected_member %}
+                <form method="post" action="{% url 'chores:complete_chore' chore.pk %}">
+                    {% csrf_token %}
+                    <button class="button button-complete" type="submit">Mark complete</button>
+                </form>
+                {% endif %}
+            </div>
+        </li>
+        {% endfor %}
+    </ul>
+    {% else %}
+    <div class="empty-state">
+        <span class="empty-mark" aria-hidden="true">+</span>
+        <h3>No chores yet</h3>
+        {% if mode == "organizer" %}
+        <p>Start with the first task for your household.</p>
+        <a class="button button-primary" href="{% url 'chores:create_chore' %}">Add the first chore</a>
+        {% endif %}
+    </div>
+    {% endif %}
+</section>
+{% endblock %}

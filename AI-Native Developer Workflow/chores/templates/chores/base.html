@@ -1,0 +1,55 @@
+{% load static %}
+<!doctype html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>{% block title %}Household Chores{% endblock %}</title>
+    <link rel="stylesheet" href="{% static 'chores/app.css' %}">
+</head>
+
+<body>
+    <header class="topbar">
+        <a class="brand" href="{% url 'chores:home' %}">
+            <span class="brand-mark" aria-hidden="true">H</span>
+            <span>Homekeeper</span>
+        </a>
+        <div class="mode-switch" role="group" aria-label="Demo mode">
+            <form method="post" action="{% url 'chores:switch_mode' %}">
+                {% csrf_token %}
+                <input type="hidden" name="mode" value="organizer">
+                <button class="mode-button {% if mode == 'organizer' %}is-active{% endif %}" type="submit"
+                    aria-pressed="{{ organizer_mode|yesno:'true,false' }}">Organizer</button>
+            </form>
+            <form class="member-mode-form" method="post" action="{% url 'chores:switch_mode' %}">
+                {% csrf_token %}
+                <input type="hidden" name="mode" value="member">
+                <label class="visually-hidden" for="member-mode-select">Choose member</label>
+                <select id="member-mode-select" name="member_id" required>
+                    <option value="" {% if not selected_member %}selected{% endif %} disabled>Choose member</option>
+                    {% for option in member_options %}
+                    <option value="{{ option.id }}" {% if option.selected %}selected{% endif %}>{{ option.name }}
+                    </option>
+                    {% endfor %}
+                </select>
+                <button class="mode-button {% if mode == 'member' %}is-active{% endif %}" type="submit"
+                    aria-pressed="{{ member_mode|yesno:'true,false' }}">Member</button>
+            </form>
+        </div>
+    </header>
+
+    {% if messages %}
+    <div class="messages" role="status" aria-live="polite">
+        {% for message in messages %}
+        <p class="message message-{{ message.tags }}">{{ message }}</p>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    <main class="page-shell">
+        {% block content %}{% endblock %}
+    </main>
+</body>
+
+</html>

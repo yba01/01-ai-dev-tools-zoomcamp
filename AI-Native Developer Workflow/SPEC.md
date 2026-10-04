@@ -8,7 +8,8 @@ Build a small tool for one household to assign one-time chores, track completion
 
 - The MVP supports one household with sample members.
 - There is one organizer role. The organizer creates chores, assigns them, and can reassign or reschedule overdue chores.
-- Household members select their name in the app; there are no individual accounts or invitations.
+- A shared Organizer/Member mode switch controls which actions are shown. In Member mode, the user selects a sample member's name.
+- This role switch is a demo interface only, not authentication or access control; there are no individual accounts or invitations.
 - Members can mark chores complete.
 
 ## Chore workflow
