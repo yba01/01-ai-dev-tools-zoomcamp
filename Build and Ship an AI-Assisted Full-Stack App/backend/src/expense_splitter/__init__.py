@@ -1,0 +1,1 @@
+"""Expense Splitter backend package."""
