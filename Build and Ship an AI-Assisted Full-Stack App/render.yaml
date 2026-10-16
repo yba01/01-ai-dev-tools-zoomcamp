@@ -1,0 +1,13 @@
+services:
+  - type: web
+    name: expense-splitter
+    runtime: docker
+    rootDir: Build and Ship an AI-Assisted Full-Stack App
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    region: oregon
+    plan: free
+    healthCheckPath: /health
+    envVars:
+      - key: DATABASE_URL
+        sync: false

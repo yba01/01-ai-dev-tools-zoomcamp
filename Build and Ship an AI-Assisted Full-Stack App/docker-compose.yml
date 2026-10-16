@@ -1,0 +1,41 @@
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: expense_splitter
+      POSTGRES_USER: expense_splitter
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-local-dev-change-me}
+    # Publish on loopback so the app can reach PostgreSQL through the host
+    # network in locked-down Linux workspaces that block container bridge TCP.
+    ports:
+      - "127.0.0.1:55432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U expense_splitter -d expense_splitter"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 5s
+    restart: unless-stopped
+
+  app:
+    build: .
+    # This Compose file targets the Linux workspace setup; host networking
+    # avoids the restricted container-to-container bridge in that environment.
+    network_mode: host
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql+psycopg://expense_splitter:${POSTGRES_PASSWORD:-local-dev-change-me}@127.0.0.1:55432/expense_splitter
+    healthcheck:
+      test: ["CMD", "python", "-c", "from urllib.request import urlopen; urlopen('http://127.0.0.1:8000/health', timeout=3)"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
