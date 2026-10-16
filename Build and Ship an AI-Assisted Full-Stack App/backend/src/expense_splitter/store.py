@@ -4,7 +4,7 @@ from datetime import timezone
 from decimal import Decimal
 from typing import Protocol
 
-from sqlalchemy import select
+from sqlalchemy import delete, select
 from sqlalchemy.orm import Session, sessionmaker
 
 from .database import (
@@ -133,6 +133,15 @@ class SQLAlchemyStore:
             row = session.get(GroupRow, group_id)
             if row is None:
                 return False
+
+            # Delete dependent rows in foreign-key order. PostgreSQL enforces
+            # these constraints while cascading group deletion, and shares
+            # reference participants as well as expenses.
+            expense_ids = select(ExpenseRow.id).where(ExpenseRow.group_id == group_id)
+            session.execute(delete(ExpenseShareRow).where(ExpenseShareRow.expense_id.in_(expense_ids)))
+            session.execute(delete(ExpenseRow).where(ExpenseRow.group_id == group_id))
+            session.execute(delete(SettlementRow).where(SettlementRow.group_id == group_id))
+            session.execute(delete(ParticipantRow).where(ParticipantRow.group_id == group_id))
             session.delete(row)
         return True
 

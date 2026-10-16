@@ -1,0 +1,29 @@
+[project]
+name = "expense-splitter-backend"
+version = "0.1.0"
+description = "FastAPI backend for the Expense Splitter application"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "fastapi>=0.115,<0.120",
+    "psycopg[binary]>=3.2,<4.0",
+    "sqlalchemy>=2.0,<3.0",
+    "uvicorn[standard]>=0.34,<1.0",
+]
+
+[dependency-groups]
+dev = [
+    "httpx>=0.28,<1.0",
+    "pytest>=8.3,<9.0",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/expense_splitter"]

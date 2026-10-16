@@ -86,11 +86,23 @@ class SettlementRow(Base):
 
 
 def build_engine(database_url: str):
+    # Managed PostgreSQL providers commonly supply either postgres:// or
+    # postgresql:// URLs. Pin both to the psycopg 3 driver installed by this
+    # project instead of SQLAlchemy's default psycopg2 driver.
+    if database_url.startswith("postgres://"):
+        database_url = "postgresql+psycopg://" + database_url.removeprefix("postgres://")
+    elif database_url.startswith("postgresql://"):
+        database_url = "postgresql+psycopg://" + database_url.removeprefix("postgresql://")
+
     options: dict = {"pool_pre_ping": True}
     if database_url.startswith("sqlite:"):
         options["connect_args"] = {"check_same_thread": False}
         if database_url in {"sqlite://", "sqlite:///:memory:"}:
             options["poolclass"] = StaticPool
+    elif database_url.startswith("postgresql"):
+        # Fail with a useful startup error if a configured PostgreSQL host
+        # cannot be reached instead of leaving Uvicorn apparently hung.
+        options["connect_args"] = {"connect_timeout": 10}
     engine = create_engine(database_url, **options)
 
     if database_url.startswith("sqlite:"):

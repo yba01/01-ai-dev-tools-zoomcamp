@@ -1,9 +1,13 @@
 from decimal import Decimal
 import os
+from pathlib import Path
 from uuid import uuid4
 
 from fastapi import FastAPI, HTTPException, Response, status
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
+from sqlalchemy.engine import URL
 
 from .calculations import balances_for, suggestions_for
 from .models import (
@@ -37,8 +41,30 @@ def create_app(store: Store | None = None, *, database_url: str | None = None) -
         allow_methods=["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
         allow_headers=["Content-Type"],
     )
+
+    @app.middleware("http")
+    async def strip_api_prefix(request, call_next):
+        # The Vite development proxy strips /api before forwarding requests.
+        # In the single-container deployment, accept that same prefix here.
+        path = request.scope["path"]
+        if path == "/api" or path.startswith("/api/"):
+            request.scope["path"] = path[4:] or "/"
+        return await call_next(request)
+
+    frontend_dist = Path(os.getenv("FRONTEND_DIST", "/app/frontend/dist"))
     if store is None:
-        configured_url = database_url or os.getenv("DATABASE_URL", "sqlite:///./expense_splitter.db")
+        configured_url = database_url or os.getenv("DATABASE_URL")
+        if configured_url is None and os.getenv("POSTGRES_HOST"):
+            configured_url = URL.create(
+                "postgresql+psycopg",
+                username=os.environ["POSTGRES_USER"],
+                password=os.environ["POSTGRES_PASSWORD"],
+                host=os.environ["POSTGRES_HOST"],
+                port=int(os.getenv("POSTGRES_PORT", "5432")),
+                database=os.getenv("POSTGRES_DB", "expense_splitter"),
+                query={"sslmode": os.getenv("POSTGRES_SSLMODE", "require")},
+            ).render_as_string(hide_password=False)
+        configured_url = configured_url or "sqlite:///./expense_splitter.db"
         store = SQLAlchemyStore(configured_url)
     app.state.store = store
 
@@ -61,6 +87,16 @@ def create_app(store: Store | None = None, *, database_url: str | None = None) -
     @app.get("/health", tags=["system"])
     async def health() -> dict[str, str]:
         return {"status": "ok"}
+
+    @app.get("/", include_in_schema=False)
+    async def frontend_index() -> FileResponse:
+        index_file = frontend_dist / "index.html"
+        if not index_file.is_file():
+            raise HTTPException(
+                status_code=503,
+                detail="Frontend build is missing. Rebuild the Docker image from the project directory.",
+            )
+        return FileResponse(index_file)
 
     @app.post("/groups", response_model=GroupRead, status_code=status.HTTP_201_CREATED, tags=["groups"])
     async def create_group(payload: GroupCreate) -> GroupRecord:
@@ -197,5 +233,11 @@ def create_app(store: Store | None = None, *, database_url: str | None = None) -
     @app.get("/groups/{group_id}/settlements", response_model=list[SettlementRead], tags=["settlements"])
     async def list_settlements(group_id: str) -> list[SettlementRead]:
         return require_group(group_id).settlements
+
+    # Mount last so the catch-all frontend route does not shadow API routes.
+    # In production, Docker copies the Vite build here; local API development
+    # remains possible when no frontend build is present.
+    if frontend_dist.is_dir():
+        app.mount("/", StaticFiles(directory=frontend_dist, html=True), name="frontend")
 
     return app
